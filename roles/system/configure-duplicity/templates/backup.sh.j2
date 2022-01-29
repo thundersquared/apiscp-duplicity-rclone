@@ -53,11 +53,7 @@ for DIR in $BDIRS; do
 
     ESCAPED_DIR=${DIR/\//-}
 
-    if [ $DIR = '.' ]; then
-        EXCLUDE_LIST='/usr/local/etc/duplicity-exclude.conf'
-    else
-        EXCLUDE_LIST="/usr/local/etc/duplicity-exclude-$ESCAPED_DIR.conf"
-    fi
+    EXCLUDE_LIST="/usr/local/etc/duplicity-exclude-$ESCAPED_DIR.conf"
 
     if [ -f $EXCLUDE_LIST ]; then
         EXCLUDE="--exclude-filelist $EXCLUDE_LIST"
@@ -69,19 +65,11 @@ for DIR in $BDIRS; do
     DUPLICITY_OPTS="-v5 --volsize 1024 $ARCHIVE_DIR $GPG_OPT $EXCLUDE"
 
     # First remove everything older than 2 months
-    if [ $DIR = '.' ]; then
-        CMD="duplicity remove-older-than 3M -v5 $ARCHIVE_DIR --force $BACKUP_DIR/{{ ansible_host }}-system >> $LOG_DIR/system.log"
-    else
-        CMD="duplicity remove-older-than 3M -v5 $ARCHIVE_DIR --force $BACKUP_DIR/{{ ansible_host }}-$DIR >> $LOG_DIR/$ESCAPED_DIR.log"
-    fi
+    CMD="duplicity remove-older-than 3M -v5 $ARCHIVE_DIR --force $BACKUP_DIR/{{ ansible_host }}-$DIR >> $LOG_DIR/$ESCAPED_DIR.log"
     eval "$CMD"
 
     # Do a backup
-    if [ $DIR = '.' ]; then
-        CMD="duplicity $TYPE $DUPLICITY_OPTS / $BACKUP_DIR/{{ ansible_host }}-system >> $LOG_DIR/system.log"
-    else
-        CMD="duplicity $TYPE $DUPLICITY_OPTS /$DIR $BACKUP_DIR/{{ ansible_host }}-$ESCAPED_DIR >> $LOG_DIR/$ESCAPED_DIR.log"
-    fi
+    CMD="duplicity $TYPE $DUPLICITY_OPTS $DIR $BACKUP_DIR/{{ ansible_host }}-$ESCAPED_DIR >> $LOG_DIR/$ESCAPED_DIR.log"
     eval "$CMD"
 
     # Mark initial full backup as done
