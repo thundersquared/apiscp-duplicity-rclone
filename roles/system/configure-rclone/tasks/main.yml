@@ -1,0 +1,23 @@
+---
+- file:
+    path: "{{ rclone_config_location | dirname }}"
+    state: directory
+    recurse: yes
+- set_fact:
+    rclone_config: "{{
+      rclone_config | default({}) | combine({
+        item: lookup('ini', '{{ item }} section={{ rclone_config_section }} file={{ rclone_config_source }}')
+      })
+    }}"
+  loop: "{{ rclone_connection_specs }}"
+  delegate_to: localhost
+  become: no
+- ini_file:
+    allow_no_value: yes
+    path: "{{ rclone_config_location }}"
+    section: "{{ rclone_config_section }}"
+    option: "{{ item }}"
+    value: "{{ rclone_config[item] | string }}"
+    backup: yes
+  loop: "{{ rclone_connection_specs }}"
+  when: "rclone_config[item] | length > 0"

@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+{{ ansible_managed | comment }}
+#
+# Simple script for creating backups with Duplicity.
+# Full backups are made on the 1st day of each month or with the 'full' option.
+# Incremental backups are made on any other days.
+#
+# USAGE: backup.sh [full]
+#
+
+set -eux
+
+# Enable reboot guard
+/bin/systemctl enable reboot-guard
+
+# Get day of the month
+DATE=$(date +%d)
+
+# Set protocol (use scp for sftp and ftp for FTP, see manpage for more)
+BPROTO="{{ rclone_config_section | ternary('rclone', 'file') }}"
+
+# Set user and hostname of backup account
+BHOST="{{ rclone_config_section }}:/{{ ansible_host }}"
+
+# Directories to backup (but . for /)
+BDIRS="{{ backup_directories | join(' ') }}"
+BACKUP_DIR="$BPROTO://$BHOST"
+ARCHIVE_DIR="--archive-dir {{ backup_dir }}/duplicity"
+LOG_DIR="/var/log/duplicity"
+
+# Setting the pass phrase to encrypt the backup files. Will use symmetrical keys in this case.
+PASSPHRASE=$(cat /root/.duplicity-backup-key)
+export PASSPHRASE
+
+# Encryption algorithm for gpg, disable for default (CAST5) see available ones via 'gpg --version'
+ALGO=AES256
+
+##############################
+
+{% if backup_algo %}
+GPG_OPT="--gpg-options '--cipher-algo {{ backup_algo }}'"
+{% endif %}
+
+# Check to see if we're at the first of the month.
+# If we are on the 1st day of the month, then run a full backup. If not, then run an incremental backup.
+if [ "$DATE" = 01 ] || ([ $# -gt 0 ] && [ "$1" = 'full' ]) || [ ! -f /usr/local/etc/duplicity-full-backup.exists ]; then
+    TYPE='full'
+else
+    TYPE='incremental'
+fi
+
+for DIR in $BDIRS; do
+
+    ESCAPED_DIR=${DIR/\//-}
+
+    if [ $DIR = '.' ]; then
+        EXCLUDE_LIST='/usr/local/etc/duplicity-exclude.conf'
+    else
+        EXCLUDE_LIST="/usr/local/etc/duplicity-exclude-$ESCAPED_DIR.conf"
+    fi
+
+    if [ -f $EXCLUDE_LIST ]; then
+        EXCLUDE="--exclude-filelist $EXCLUDE_LIST"
+    else
+        EXCLUDE=''
+    fi
+
+    # Build command options
+    DUPLICITY_OPTS="-v5 --volsize 1024 $ARCHIVE_DIR $GPG_OPT $EXCLUDE"
+
+    # First remove everything older than 2 months
+    if [ $DIR = '.' ]; then
+        CMD="duplicity remove-older-than 3M -v5 $ARCHIVE_DIR --force $BACKUP_DIR/{{ ansible_host }}-system >> $LOG_DIR/system.log"
+    else
+        CMD="duplicity remove-older-than 3M -v5 $ARCHIVE_DIR --force $BACKUP_DIR/{{ ansible_host }}-$DIR >> $LOG_DIR/$ESCAPED_DIR.log"
+    fi
+    eval "$CMD"
+
+    # Do a backup
+    if [ $DIR = '.' ]; then
+        CMD="duplicity $TYPE $DUPLICITY_OPTS / $BACKUP_DIR/{{ ansible_host }}-system >> $LOG_DIR/system.log"
+    else
+        CMD="duplicity $TYPE $DUPLICITY_OPTS /$DIR $BACKUP_DIR/{{ ansible_host }}-$ESCAPED_DIR >> $LOG_DIR/$ESCAPED_DIR.log"
+    fi
+    eval "$CMD"
+
+    # Mark initial full backup as done
+    if [ $TYPE = 'full' ]; then
+        touch /usr/local/etc/duplicity-full-backup.exists
+    fi
+
+done
+
+# Check the manpage for all available options for Duplicity.
+# Unsetting the confidential variables
+unset PASSPHRASE
+
+{% if heartbeat_url %}
+# Send heartbeat to notify successfull backup
+curl -fsSL --retry 3 "{{ heartbeat_url }}" >/dev/null
+{% endif %}
+
+# Release reboot guard
+/bin/systemctl disable reboot-guard
+
+exit 0

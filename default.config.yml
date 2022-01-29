@@ -1,0 +1,10 @@
+---
+backup_dir: '/home/backup'
+backup_algo: 'AES256'
+backup_directories: [
+  'home/virtual/site*/shadow',
+  'home/virtual/site*/info',
+  'var/log/mailer_table*',
+  'var/lib/mysql/mysql-grants*',
+  'var/lib/pgsql/*/backups'
+]

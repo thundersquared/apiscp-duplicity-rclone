@@ -1,0 +1,24 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: yes
+
+  module_defaults:
+
+  vars_files:
+    - default.config.yml
+
+  pre_tasks:
+    - include_vars: "{{ item }}"
+      with_fileglob:
+        - "{{ playbook_dir }}/config.yml"
+      tags: ['always']
+
+  roles:
+    - role: system/package-install
+      tags: ['packages']
+    - role: system/configure-rclone
+      tags: ['rclone']
+      when: rclone_config_section is defined
+    - role: system/configure-duplicity
+      tags: ['duplicity']

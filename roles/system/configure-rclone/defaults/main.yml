@@ -1,0 +1,9 @@
+---
+rclone_config_location: '/root/.config/rclone/rclone.conf'
+rclone_connection_specs:
+  - 'type'
+  - 'client_id'
+  - 'client_secret'
+  - 'token'
+  - 'team_drive'
+  - 'root_folder_id'

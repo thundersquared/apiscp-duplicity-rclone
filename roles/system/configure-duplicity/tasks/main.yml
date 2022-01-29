@@ -1,0 +1,65 @@
+---
+- name: Ensure group "backup" exists
+  group:
+    name: backup
+    state: present
+- name: Ensure user "backup" exists
+  user:
+    name: backup
+    group: backup
+    state: present
+    system: yes
+- name: Copy backup passphrase
+  copy:
+    content: "{{ backup_secret_passphrase }}"
+    dest: "/root/.duplicity-backup-key"
+- name: Copy backup script
+  template:
+    src: "backup.sh.j2"
+    dest: "/usr/local/sbin/SystemBackup"
+    mode: 0744
+- name: Copy backup exclusion list
+  template:
+    src: "exclude.conf.j2"
+    dest: "/usr/local/etc/duplicity-exclude.conf"
+    mode: 0644
+- name: Copy backup exclusion list for specific path
+  template:
+    src: "exclude-{{ item | replace('/', '-') }}.conf.j2"
+    dest: "/usr/local/etc/duplicity-exclude-{{ item | replace('/', '-') }}.conf"
+    mode: 0644
+  loop: "{{ backup_directories }}"
+  when: "item != '.'"
+- name: Create duplicity logs dir
+  file:
+    path: "/var/log/duplicity"
+    state: directory
+    recurse: yes
+- name: Create reboot guard service file
+  template:
+    src: "guard-service.j2"
+    dest: "/etc/systemd/system/reboot-guard.service"
+    mode: 0644
+  notify:
+    - reload systemctl
+- name: Create backup service file
+  template:
+    src: "backup-service.j2"
+    dest: "/etc/systemd/system/system-backups.service"
+    mode: 0644
+  notify:
+    - reload systemctl
+- name: Create backup timer file
+  template:
+    src: "backup-timer.j2"
+    dest: "/etc/systemd/system/system-backups.timer"
+    mode: 0644
+  notify:
+    - reload systemctl
+- name: Flush handlers
+  meta: flush_handlers
+- name: Start System Backups
+  service:
+    name: system-backups.timer
+    state: started
+    enabled: yes

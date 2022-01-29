@@ -1,0 +1,7 @@
+[Unit]
+Description=System Backups
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/SystemBackup
+WorkingDirectory={{ backup_dir }}

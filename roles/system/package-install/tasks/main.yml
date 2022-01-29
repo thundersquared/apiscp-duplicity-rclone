@@ -1,0 +1,16 @@
+---
+- name: Install required packages
+  yum:
+    name:
+      - duplicity
+      - rclone
+    state: latest
+  when: ansible_distribution_version | int > 7
+- name: Install required packages for oldstable
+  yum:
+    name:
+      - librsync-devel
+      - python3-devel
+      - rclone
+    state: latest
+  when: ansible_distribution_version | int < 8
