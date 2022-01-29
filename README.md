@@ -35,11 +35,11 @@ backup_dir: '/home/backup'
 backup_algo: 'AES256'
 # which paths to back up
 backup_directories: [
-  'home/virtual/site*/shadow',
-  'home/virtual/site*/info',
-  'var/log/mailer_table*',
-  'var/lib/mysql/mysql-grants*',
-  'var/lib/pgsql/*/backups'
+  '/home/virtual/site*/shadow',
+  '/home/virtual/site*/info',
+  '/var/log/mailer_table*',
+  '/var/lib/mysql/mysql-grants*',
+  '/var/lib/pgsql/*/backups'
 ]
 # URL to be called on success
 heartbeat_url: "https://betteruptime.com/api/v1/heartbeat/{{ heartbeat_id }}"
